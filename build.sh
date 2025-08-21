@@ -22,7 +22,7 @@ cargo pgo optimize
 
 mkdir ../dist
 
-cp -r ../target/$TARGET/release/rquickjs ../dist/rqjs-pgo
+cp ./target/$TARGET/release/rquickjs ../dist/rqjs-pgo
 
 cd ..
 

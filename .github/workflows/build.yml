@@ -12,10 +12,12 @@ on:
   pull_request:
   workflow_dispatch:
 
-
 defaults:
   run:
     shell: bash --noprofile --norc -CeEuo pipefail {0}
+
+env:
+  GITHUb_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   build:
@@ -23,9 +25,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: aarch64-apple-darwin
-            os: macos-15
-          - target: x86_64-pc-windows-gnu
+          # - target: aarch64-apple-darwin
+          #   os: macos-15
+          - target: x86_64-pc-windows-msvc
             os: windows-latest
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-24.04
@@ -38,40 +40,19 @@ jobs:
           rustflags: "-A warnings"
           toolchain: "stable"
 
-
-      - uses: msys2/setup-msys2@v2
-        if: matrix.os == 'windows-latest'
-        with:
-          msystem: MINGW64
-          update: true
-          path-type: inherit
-          install: >-
-            mingw-w64-x86_64-make
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-llvm
-            mingw-w64-x86_64-llvm-tools
-            mingw-w64-x86_64-perl
-            mingw-w64-x86_64-python3
-            zip
-            unzip
-            curl
-            wget
       - uses: cargo-bins/cargo-binstall@main
       - name: install cargo-pgo
         run: |
-          cargo binstall cargo-pgo
+          cargo binstall cargo-pgo --force --no-confirm
           rustup component add llvm-tools-preview
       - name: ubuntu install llvm
         if: "startsWith(matrix.os, 'ubuntu')"
-        shell: "bash"
         run: |
           sudo apt update -y
           sudo apt install llvm -y
 
       - name: macos install llvm
         if: "startsWith(matrix.os, 'macos')"
-        shell: "bash"
         run: |
           brew install llvm
           echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
@@ -84,16 +65,7 @@ jobs:
         run: |
           llvm-profdata --version
           which llvm-profdata
-
       - name: build-${{ matrix.target }}
-        if: matrix.os != 'windows-latest'
-        shell: "bash"
-        run: |
-          bash build.sh ${{ matrix.target }}
-
-      - name: build-windows
-        if: matrix.os == 'windows-latest'
-        shell: msys2 {0}
         run: |
           bash build.sh ${{ matrix.target }}
 
