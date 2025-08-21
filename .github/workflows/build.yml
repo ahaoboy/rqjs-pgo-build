@@ -58,7 +58,7 @@ jobs:
             curl
             wget
       - uses: cargo-bins/cargo-binstall@main
-      - name: install cargo-pg
+      - name: install cargo-pgo
         run: |
           cargo binstall cargo-pgo
           rustup component add llvm-tools-preview
@@ -67,7 +67,7 @@ jobs:
         shell: "bash"
         run: |
           sudo apt update -y
-          # sudo apt install llvm llvm-profdata -y
+          sudo apt install llvm -y
 
       - name: macos install llvm
         if: "startsWith(matrix.os, 'macos')"
@@ -84,10 +84,6 @@ jobs:
         run: |
           llvm-profdata --version
           which llvm-profdata
-
-      - name: pgo info
-        run: |
-          cargo pgo info
 
       - name: build-${{ matrix.target }}
         if: matrix.os != 'windows-latest'

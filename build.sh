@@ -8,7 +8,10 @@ fi
 TARGET=$1
 
 git clone https://github.com/ahaoboy/rquickjs-cli.git rquickjs-cli --depth=1
+
 cd rquickjs-cli
+
+cargo pgo info
 
 cargo pgo build
 
