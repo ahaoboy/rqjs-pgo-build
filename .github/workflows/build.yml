@@ -10,6 +10,8 @@ on:
     branches:
       - "main"
   pull_request:
+  workflow_dispatch:
+
 
 defaults:
   run:
@@ -35,6 +37,8 @@ jobs:
         with:
           rustflags: "-A warnings"
           toolchain: "stable"
+
+
       - uses: msys2/setup-msys2@v2
         if: matrix.os == 'windows-latest'
         with:
@@ -53,12 +57,17 @@ jobs:
             unzip
             curl
             wget
-
+      - uses: cargo-bins/cargo-binstall@main
+      - name: install cargo-pg
+        run: |
+          cargo binstall cargo-pgo
+          rustup component add llvm-tools-preview
       - name: ubuntu install llvm
         if: "startsWith(matrix.os, 'ubuntu')"
         shell: "bash"
         run: |
-          sudo apt install llvm llvm-profdata -y
+          sudo apt update -y
+          # sudo apt install llvm llvm-profdata -y
 
       - name: macos install llvm
         if: "startsWith(matrix.os, 'macos')"
@@ -78,7 +87,6 @@ jobs:
 
       - name: pgo info
         run: |
-          rustup component add llvm-tools-preview
           cargo pgo info
 
       - name: build-${{ matrix.target }}
