@@ -1,0 +1,118 @@
+name: build
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v*"
+    branches:
+      - "main"
+  pull_request:
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -CeEuo pipefail {0}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            os: macos-15
+          - target: x86_64-pc-windows-gnu
+            os: windows-latest
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    name: build-${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: "-A warnings"
+          toolchain: "stable"
+      - uses: msys2/setup-msys2@v2
+        if: matrix.os == 'windows-latest'
+        with:
+          msystem: MINGW64
+          update: true
+          path-type: inherit
+          install: >-
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-llvm
+            mingw-w64-x86_64-llvm-tools
+            mingw-w64-x86_64-perl
+            mingw-w64-x86_64-python3
+            zip
+            unzip
+            curl
+            wget
+
+      - name: ubuntu install llvm
+        if: "startsWith(matrix.os, 'ubuntu')"
+        shell: "bash"
+        run: |
+          sudo apt install llvm llvm-profdata -y
+
+      - name: macos install llvm
+        if: "startsWith(matrix.os, 'macos')"
+        shell: "bash"
+        run: |
+          brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
+          echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix llvm)/bin/llvm-profdata" >> $GITHUB_PATH
+          echo "LDFLAGS=-L/usr/local/opt/llvm/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I/usr/local/opt/llvm/include" >> $GITHUB_ENV
+
+      - name: llvm version
+        run: |
+          llvm-profdata --version
+          which llvm-profdata
+
+      - name: pgo info
+        run: |
+          rustup component add llvm-tools-preview
+          cargo pgo info
+
+      - name: build-${{ matrix.target }}
+        if: matrix.os != 'windows-latest'
+        shell: "bash"
+        run: |
+          bash build.sh ${{ matrix.target }}
+
+      - name: build-windows
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          bash build.sh ${{ matrix.target }}
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: rqjs-pgo-${{ matrix.target }}
+          path: ./rqjs-pgo-${{ matrix.target }}.tar.gz
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: rqjs-pgo
+          pattern: rqjs-pgo*
+          merge-multiple: true
+
+      - name: release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: nightly
+          artifacts: "rqjs-pgo/*.tar.gz"
+          allowUpdates: true
